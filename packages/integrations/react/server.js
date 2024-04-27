@@ -153,22 +153,27 @@ async function renderToPipeableStreamAsync(vnode, options) {
 async function renderToStaticNodeStreamAsync(vnode, options) {
 	const Writable = await getNodeWritable();
 	let html = '';
+
 	return new Promise((resolve, reject) => {
-		let stream = ReactDOM.renderToStaticNodeStream(vnode, options);
-		stream.on('error', (err) => {
-			reject(err);
+		let { pipe } = ReactDOM.renderToPipeableStream(vnode, {
+			...options,
+			onError(err) {
+				reject(err);
+			},
+			onAllReady() {
+				pipe(
+					new Writable({
+						write(chunk, _encoding, callback) {
+							html += chunk.toString('utf-8');
+							callback();
+						},
+						destroy() {
+							resolve(html);
+						},
+					})
+				);
+			},
 		});
-		stream.pipe(
-			new Writable({
-				write(chunk, _encoding, callback) {
-					html += chunk.toString('utf-8');
-					callback();
-				},
-				destroy() {
-					resolve(html);
-				},
-			})
-		);
 	});
 }
 
